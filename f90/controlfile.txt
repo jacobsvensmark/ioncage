@@ -1,0 +1,84 @@
+--------------------------------------------
+   INPUTFILE FOR main.f90 IONCAGE PROGRAM    
+--------------------------------------------
+--------------- Total number of particle nodes ---------------- 
+ntot                           33
+----------------- Mechanisms to be included --------------------
+charge_module                  1
+coagulation_module             1
+nucleation_module              1
+condensation_module            1
+ion_condensation_module        1
+loss_module                    1
+monomer_production_module      1
+
+------------------- Continue from previous run -- -----------------
+load_file_flag                 0 
+filename_load                  output.dat
+NOTE: By setting this flag, the "Initial concentrations"
+      parameters will be overwritten (except if "fix_initials" 
+      is set below, then the fixed parameter is not).
+
+------------------------ Parameters ------------------------------
+nucleation_rate_neutral        0.1             [ cm^(-3) s^(-1) ]
+nucleation_rate_positive       0.1             [ cm^(-3) s^(-1) ]
+nucleation_rate_negative       0.1             [ cm^(-3) s^(-1) ]
+neutral_production_rate        1.0e5           [ cm^(-3) s^(-1) ] 
+ion_pair_production_rate       1.0             [ cm^(-3) s^(-1) ]
+recombination_coefficient      1.6e-6          [ cm^( 3) s^(-1) ]
+density_of_aerosols            1200.0          [ kg m^(-3) ]
+loss_term_gamma                0.69                       (Svensmark et al. 2013)
+loss_term_lambda               6.2e-4          [ s^(-1) ] (Svensmark et al. 2013)
+loss_term_d_loss               2.              [ nm ]     (Svensmark et al. 2013)
+diameter_large_aerosol_loss    300             [ nm ] 
+concentr_large_aerosol_loss    10              [ cm^(-3) ]
+neutral_mass                   100.0           [ amu ] Monomer mass
+positive_ion_mass              225.0           [ amu ] Monomer mass
+negative_ion_mass              225.0           [ amu ] Monomer mass
+positive_ion_density           1200.0          [ kg m^(-3) ] Monomer density
+negative_ion_density           1200.0          [ kg m^(-3) ] Monomer density
+
+------------------ Initial concentrations ------------------------
+initial_ion(+)_concentr        500.0           [ cm^(-3) ] Note - overwrites monomer value from load_file_flag = 1
+initial_ion(-)_concentr        500.0           [ cm^(-3) ] Note - overwrites monomer value from load_file_flag = 1
+initial_neutral_concentr       1.e8            [ cm^(-3) ] Note - overwrites monomer value from load_file_flag = 1
+fix_initials                   0,0,0           (0 or 1 - fixes [np, nm, nsa] to the initial values)
+
+-------------------- Time Related Parameters ---------------------
+start_time                     0.              [ s ]
+end_time                       1200            [ s ]
+time_step_length               0.01            [ s ]  
+make_snapshot_every            1.2             [ s ]
+
+-------------------- Size Related Parameters ---------------------
+minimum_aerosol_diameter       1               [ nm ] Aerosol size range	
+maximum_aerosol_diameter       300             [ nm ] Aerosol size range	
+neutral_critical_diameter      0.8             [ nm ] Nucleation
+positive_critical_diameter     0.8             [ nm ] Nucleation
+negative_critical_diameter     0.8             [ nm ] Nucleation
+--------------------  Interaction Coefficents --------------------
+       |   WARNING : If line length exceeds 150 chars     |
+       | the buffer should be increased in the SUBROUTINE |
+       |        print_controlfile_to_output.f90           |
+n_header_Kklp0                 7
+filename_Kklp0                 ../dat/Coagulation_coefficient_matrix_p0.dat
+n_header_Kklpm                 7
+filename_Kklpm                 ../dat/Coagulation_coefficient_matrix_pm.dat
+n_header_Kkl00                 7
+filename_Kkl00                 ../dat/Coagulation_coefficient_matrix_00.dat
+n_header_Kkl0m                 7
+filename_Kkl0m                 ../dat/Coagulation_coefficient_matrix_0p.dat
+n_header_bkp0                  9 
+filename_bkp0                  ../dat/Condensation_coef_table_225.000AMU_p0.dat
+n_header_bkpm                  9 
+filename_bkpm                  ../dat/Condensation_coef_table_225.000AMU_pm.dat
+n_header_bkmp                  9 
+filename_bkmp                  ../dat/Condensation_coef_table_225.000AMU_mp.dat
+n_header_bkm0                  9 
+filename_bkm0                  ../dat/Condensation_coef_table_225.000AMU_m0.dat
+n_header_bk0p                  9 
+filename_bk0p                  ../dat/Condensation_coef_table_100.000AMU_0p.dat
+n_header_bk00                  9 
+filename_bk00                  ../dat/Condensation_coef_table_100.000AMU_00.dat
+n_header_bk0m                  9
+filename_bk0m                  ../dat/Condensation_coef_table_100.000AMU_0m.dat
