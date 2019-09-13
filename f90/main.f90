@@ -1,4 +1,4 @@
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! 
 !! FORTRAN version v0.9 of the ION-CAGE code.  !!
 !! // Jacob Svensmark                          !!
 !! In case of using the following code, please !!
