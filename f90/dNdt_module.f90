@@ -1,28 +1,27 @@
+MODULE dNdt_module
 !///////////////////////////////////////////
 !/ Ions are treated as clusters with mass //
 !///////////////////////////////////////////
 
-MODULE dNdt_module
-
  IMPLICIT NONE
 
-CONTAINS
+ CONTAINS
 
 !//////////////////////
 !/ NUCLEATION MODULE //
 !//////////////////////
 
- SUBROUTINE dNdt_nucl( dNk0dt, dNkpdt, dNkmdt, dnmdt, dnpdt, Jn0_scaled, &
-                       Jnp_scaled, Jnm_scaled, i_J0, i_Jp, i_Jm, Jnp, Jnm, Ntot)
+ SUBROUTINE dNdt_nucl( dNk0dt, dNkpdt, dNkmdt, dnmdt, dnpdt)
 
     USE precision_type
-    integer :: Ntot, i_J0, i_Jp, i_Jm
-    real(dp) :: dnpdt, dnmdt, Jn0_scaled, Jnp_scaled, Jnm_scaled, Jnp, Jnm
+    USE shared_data, ONLY : i_Jn0, i_Jnp, i_Jnm, Jn0_scaled, Jnp_scaled, Jnm_scaled, Jnp, Jnm, Ntot 
+
+    real(dp) :: dnpdt, dnmdt
     real(dp),dimension(Ntot) :: dNk0dt, dNkpdt, dNkmdt
 
-    dNk0dt(i_J0) = dNk0dt(i_J0) + Jn0_scaled
-    dNkpdt(i_Jp) = dNkpdt(i_Jp) + Jnp_scaled
-    dNkmdt(i_Jm) = dNkmdt(i_Jm) + Jnm_scaled
+    dNk0dt(i_Jn0) = dNk0dt(i_Jn0) + Jn0_scaled
+    dNkpdt(i_Jnp) = dNkpdt(i_Jnp) + Jnp_scaled
+    dNkmdt(i_Jnm) = dNkmdt(i_Jnm) + Jnm_scaled
     dnpdt = dnpdt - Jnp
     dnmdt = dnmdt - Jnm
 
@@ -32,13 +31,13 @@ CONTAINS
 !/ COAGULATION MODULE //
 !///////////////////////
 
- SUBROUTINE dNdt_coag( Nk0, Nkp, Nkm, dNk0dt, dNkpdt, dNkmdt, S, Vij, Kklp0, Kklpm, Kkl00, Kkl0m, Ntot)
+ SUBROUTINE dNdt_coag( Nk0, Nkp, Nkm, dNk0dt, dNkpdt, dNkmdt)
     USE precision_type
-    integer                       :: i,j,Ntot
-    integer,dimension(Ntot,Ntot)  :: Vij
+    USE shared_data, ONLY          : S, Vij, Kklp0, Kklpm, Kkl00, Kkl0m, Ntot
+    integer                       :: i, j
     real(dp)                      :: Ip0, Ipm, I00, I0m
     real(dp),dimension(Ntot)      :: Nk0, Nkp, Nkm, dNk0dt, dNkpdt,dNkmdt
-    real(dp),dimension(Ntot,Ntot) :: S, Kklp0, Kklpm, Kkl00, Kkl0m
+
     DO i=1,Ntot
        DO j=1,Ntot 
           Ip0 = Kklp0(i,j) * Nkp(i) * Nk0(j)
@@ -65,12 +64,12 @@ CONTAINS
 !/ CONDENSATION MODULE //
 !////////////////////////
 
- SUBROUTINE dNdt_cond( Nk0, Nkp, Nkm, dNk0dt, dNkpdt, dNkmdt, v, v0, n0, bk00, bk0p, bk0m, &
-                       dn0dt, Ntot)
+ SUBROUTINE dNdt_cond( Nk0, Nkp, Nkm, dNk0dt, dNkpdt, dNkmdt, n0, dn0dt)
     USE precision_type
-    integer                  :: Ntot, i
-    real(dp)                 :: v0, n0, dn0dt, temp, vmaxp1
-    real(dp),dimension(Ntot) :: Nk0, Nkp, Nkm, dNk0dt, dNkpdt,dNkmdt,v,bk00,bk0p,bk0m
+    USE shared_data, ONLY     : bk00, bk0p, bk0m, v, v0, Ntot
+    integer                  :: i
+    real(dp)                 :: n0, dn0dt, temp, vmaxp1
+    real(dp),dimension(Ntot) :: Nk0, Nkp, Nkm, dNk0dt, dNkpdt,dNkmdt
 
     dNk0dt(1) = dNk0dt(1) - n0 * bk00(1)*Nk0(1)/(v(2)-v(1)) * v0
     dNkpdt(1) = dNkpdt(1) - n0 * bk0p(1)*Nkp(1)/(v(2)-v(1)) * v0
@@ -102,12 +101,14 @@ CONTAINS
 !/ ION-INDUCED CONDENSATION MODULE //
 !////////////////////////////////////
 
- SUBROUTINE dNdt_ionc( Nk0, Nkp, Nkm, dNk0dt, dNkpdt, dNkmdt, v, bkm0, bkp0, bkpm, bkmp,&
-                       vm, vp, nm, np, Ntot)
+ SUBROUTINE dNdt_ionc( Nk0, Nkp, Nkm, dNk0dt, dNkpdt, dNkmdt, nm, np)
     USE precision_type
-    integer                  :: Ntot, i
-    real(dp)                 :: P0, v0, np, nm, temp, vm, vp, vmaxp1
-    real(dp),dimension(Ntot) :: Nk0, Nkp, Nkm, dNk0dt, dNkpdt, dNkmdt, v, bkm0, bkp0, bkpm, bkmp
+    USE shared_data, ONLY     : P0, v0, vcm, vcp, v, bkm0, bkp0, bkpm, bkmp, Ntot
+    integer                  :: i
+    real(dp)                 :: np, nm, temp, vm, vp, vmaxp1
+    real(dp),dimension(Ntot) :: Nk0, Nkp, Nkm, dNk0dt, dNkpdt, dNkmdt
+    vm = vcm
+    vp = vcp
 
     dNk0dt(1) = dNk0dt(1) - nm * bkmp(1)*Nkp(1)/(v(2)-v(1)) * vm   - np * bkpm(1)*Nkm(1)/(v(2)-v(1)) * vp
     dNkpdt(1) = dNkpdt(1) - np * bkp0(1)*Nk0(1)/(v(2)-v(1)) * vp
@@ -138,13 +139,12 @@ CONTAINS
 !/ CHARGE EXCHANGE MODULE //
 !///////////////////////////
 
- SUBROUTINE dNdt_char( Nk0, Nkp, Nkm, dNk0dt, dNkpdt, dNkmdt, nm, np, dnmdt,dnpdt, &
-                       bkm0, bkmp, bkp0, bkpm, Ntot)
+ SUBROUTINE dNdt_char( Nk0, Nkp, Nkm, dNk0dt, dNkpdt, dNkmdt, nm, np, dnmdt,dnpdt)
     USE precision_type
-    integer                  :: Ntot, i
-    integer,dimension(Ntot)  :: Wip, Wim
-    real(dp)                 :: nm, np, dnmdt, dnpdt, alpha, sum1, sum2
-    real(dp),dimension(Ntot) :: bkm0,bkmp,bkp0,bkpm,Zip,Zim, Nk0,Nkp,Nkm,dNk0dt,dNkpdt,dNkmdt
+    USE shared_data, ONLY     : bkm0, bkmp, bkp0, bkpm, Ntot
+    integer                  :: i
+    real(dp)                 :: nm, np, dnmdt, dnpdt, sum1, sum2
+    real(dp),dimension(Ntot) :: Nk0,Nkp,Nkm,dNk0dt,dNkpdt,dNkmdt
 
     sum1 = 0.0d0
     sum2 = 0.0d0
@@ -167,15 +167,14 @@ CONTAINS
 !/      LOSS MODULE       //
 !///////////////////////////
 
- SUBROUTINE dNdt_loss( Nk0, Nkp, Nkm,  dNk0dt, dNkpdt, dNkmdt, n0,  nm, np, dn0dt, &
-                       dnpdt, dnmdt, d, d_np, d_nm, d_n0, ggamma, lambda, d_loss, &
-                       alpha, NL, bL0, bLp, bLm, kL0, kLp, kLm, Ntot)
+ SUBROUTINE dNdt_loss( Nk0, Nkp, Nkm,  dNk0dt, dNkpdt, dNkmdt, n0,  nm, np, dn0dt, dnpdt, dnmdt)
 
     USE precision_type
-    integer                  :: Ntot, i
-    real(dp)                 :: n0, nm, np, dn0dt, dnpdt, dnmdt,d_np, NL, bL0, bLp, bLm
-    real(dp)                 :: d_nm, d_n0, ggamma, lambda, d_loss, alpha
-    real(dp),dimension(Ntot) :: Nk0, Nkp, Nkm, dNk0dt, dNkpdt, dNkmdt, d, kL0, kLp, kLm
+    USE shared_data, ONLY     : d_np, d_nm, d_n0, ggamma, lambda, d_loss, alpha,d, kL0, &
+                                kLp, kLm,d_np, NL, bL0, bLp, bLm, Ntot
+    integer                  :: i
+    real(dp)                 :: n0, nm, np, dn0dt, dnpdt, dnmdt
+    real(dp),dimension(Ntot) :: Nk0, Nkp, Nkm, dNk0dt, dNkpdt, dNkmdt 
 
     ! Wall loss
     DO i=1,Ntot
@@ -204,16 +203,17 @@ CONTAINS
 !/ MONOMER PRODUCTION MODULE  //
 !///////////////////////////////
 
- SUBROUTINE dNdt_prod(dn0dt, dnpdt, dnmdt, n0, np, nm, P0, q, Ntot)
+ SUBROUTINE dNdt_prod(dn0dt, dnpdt, dnmdt)
 
     USE precision_type
-    integer  :: Ntot, i
-    real(dp) :: n0, nm, np, dn0dt, dnpdt, dnmdt, d_np, d_nm, d_n0, P0, q
+    USE shared_data, ONLY : P0, q
 
+    real(dp) :: dn0dt, dnpdt, dnmdt
     dn0dt = dn0dt + P0 
     dnpdt = dnpdt + q
     dnmdt = dnmdt + q
     
  END SUBROUTINE dNdt_prod
+
 
 END MODULE dNdt_module

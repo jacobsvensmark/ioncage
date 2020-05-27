@@ -304,7 +304,7 @@ MODULE io_ioncage_module
                              head_bkp0, head_bkpm, head_bkmp, head_bkm0, head_bk0p, &
                              head_bk00, head_bk0m, rho_p, ggamma, lambda, mc0, &
                              binFLAG, mcp, mcm, rhocp, rhocm, Ntot, np_fix_flag, nm_fix_flag, &
-                             n0_fix_flag,d0_crit,dp_crit,dn_crit, d_loss, NL, d_NL)
+                             n0_fix_flag,d0_crit,dp_crit,dn_crit, d_loss, NL, d_NL,relerr,abserr,flag)
  ! Reads parameters set in controlfile
  
    USE precision_type
@@ -319,10 +319,10 @@ MODULE io_ioncage_module
  
    ! Control file variables
    integer :: Ntot, charFLAG, coagFLAG, nuclFLAG, condFLAG, lossFLAG, loadFLAG, np_fix_flag, nm_fix_flag, n0_fix_flag 
-   integer :: head_Kklp0, head_Kklpm, head_Kkl00, head_Kkl0m, head_bkp0, binFLAG, ioncFLAG, prodFLAG
+   integer :: head_Kklp0, head_Kklpm, head_Kkl00, head_Kkl0m, head_bkp0, binFLAG, ioncFLAG, prodFLAG,flag
    integer :: head_bkpm, head_bkmp, head_bkm0, head_bk0p, head_bk00, head_bk0m
    real(dp) :: T, P0, Jn0, Jnp, Jnm, q, alpha, n00, np0, nm0, t0, dt, ts, te, mcm, mcp, rhocp, rhocm, d_loss
-   real(dp) :: dmin, dmax, rho_p, ggamma, lambda, mc0, d0_crit, dp_crit, dn_crit, NL, d_NL
+   real(dp) :: dmin, dmax, rho_p, ggamma, lambda, mc0, d0_crit, dp_crit, dn_crit, NL, d_NL, relerr,abserr
  
    character(LEN=300) :: input_file, load_state_file,fname_Kklp0, fname_Kklpm, fname_Kkl00, fname_Kkl0m, fname_bkp0
    character(LEN=300) :: fname_bkpm, fname_bkmp, fname_bkm0, fname_bk0p, fname_bk00, fname_bk0m
@@ -431,6 +431,12 @@ MODULE io_ioncage_module
             read(buffer, *, iostat=ios) d_NL
          case ('concentr_large_aerosol_loss') 
             read(buffer, *, iostat=ios) NL
+         case ('relerr') 
+            read(buffer, *, iostat=ios) relerr
+         case ('abserr') 
+            read(buffer, *, iostat=ios) abserr
+         case ('flag') 
+            read(buffer, *, iostat=ios) flag
          case ('n_header_Kklp0')
             read(buffer, *, iostat=ios) head_Kklp0
          case ('filename_Kklp0')
@@ -613,7 +619,7 @@ MODULE io_ioncage_module
      label = buffer(1:pos)
      buffer = buffer(pos+1:)
      read(buffer, *) Np_file
-     DO i=1,48 ! Skip lines
+     DO i=1,47 ! Skip lines
         read(lunit,"(A)") buffer
      ENDDO
  
@@ -644,7 +650,7 @@ MODULE io_ioncage_module
  !/ Read final snapshot into arrays
   OPEN(lunit, file = filename)
      Nsnaps = (number_of_lines-(88+Ntot+2))/(Ntot+12)
-     DO i=1, 87+(2+Ntot)+(Nsnaps-1)*(Ntot+12)
+     DO i=1, 92+(2+Ntot)+(Nsnaps-1)*(Ntot+12)
         read(lunit,"(A)") buffer !// Skip to final snapshot
      ENDDO
      DO i=1,7

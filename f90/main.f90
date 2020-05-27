@@ -1,3 +1,4 @@
+
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! 
 !! FORTRAN version v0.9 of the ION-CAGE code.  !!
 !! // Jacob Svensmark                          !!
@@ -16,33 +17,28 @@ PROGRAM main
  USE math_module
  USE calc_module
  USE dNdt_module
+ USE shared_data
+ USE rk45_mod
 
  IMPLICIT NONE
 
 !//////////////////////////
 !/ Variable Declarations //
 !//////////////////////////
- integer :: i,j,rk,Ntot, np_fix_flag, nm_fix_flag, n0_fix_flag 
- integer :: charFLAG,coagFLAG,nuclFLAG,condFLAG,lossFLAG,loadFLAG,ioncFLAG,prodFLAG
+ integer :: i, j, neqn, flag
  integer :: head_Kklp0,head_Kklpm,head_Kkl00,head_Kkl0m, head_bkp0, head_bkpm 
  integer :: head_bkmp, head_bkm0, head_bk0p, head_bk00, head_bk0m, binFLAG
- integer :: i_Jn0, i_Jnp, i_Jnm
- integer,allocatable :: Vij(:,:) 
- real(dp) :: d0_crit, dp_crit, dm_crit, Jn0_scaled, Jnp_scaled, Jnm_scaled
- real(dp) :: v0_crit, vp_crit, vm_crit, d_loss
- real(dp) :: rk_coef(4) = (/1.0d0,2.0d0,2.0d0,1.0d0/)
- real(dp) :: vmin, vmax,n0, np, nm, n0_rk,  np_rk,  nm_rk, tt, v0
- real(dp) :: mcp, mcm, rhocp, rhocm, vcm,vcp, NL, d_NL, bL0, bLp, bLm
- real(dp) :: q, alpha, n00, np0, nm0, t0, dt, ts, te, ggamma, lambda, pi
- real(dp) :: dmin, dmax, d_np, d_nm, d_n0, P0, Jn0, Jnp, Jnm, rho_p, mc0, Nx, Vx
- real(dp),dimension(4) :: fn0, fnp, fnm
- real(dp),allocatable :: fNk0(:,:),fNkp(:,:),fNkm(:,:) 
- real(dp),allocatable :: v(:),d(:),bkp0(:),bkpm(:),bk0p(:),bk00(:),bk0m(:),bkmp(:),bkm0(:)
- real(dp),allocatable :: Nk0(:),Nkp(:),Nkm(:),Nk0_rk(:),Nkp_rk(:),Nkm_rk(:)
- real(dp),allocatable :: S(:,:),Kklp0(:,:),Kklpm(:,:),Kkl00(:,:),Kkl0m(:,:), kL0(:), kLp(:), kLm(:)
+ real(dp) :: d0_crit, dp_crit, dm_crit
+ real(dp) :: v0_crit, vp_crit, vm_crit
+ real(dp) :: vmin, vmax, n0, np, nm, dn0dt, dnpdt, dnmdt, tt
+ real(dp) :: mcp, mcm, rhocp, rhocm, d_NL, abserr, relerr
+ real(dp) :: n00, np0, nm0, t0, dt, ts, te, pi
+ real(dp) :: dmin, dmax, Jn0, rho_p, mc0
+ real(dp),allocatable :: Nk0(:),Nkp(:),Nkm(:),dNk0dt(:),dNkpdt(:),dNkmdt(:), y(:), yp(:)
  character(LEN=300) :: load_state_file, fname_Kklp0, fname_Kklpm, fname_Kkl00, fname_Kkl0m, fname_bkp0 
  character(LEN=300) :: fname_bkpm, fname_bkmp, fname_bkm0, fname_bk0p, fname_bk00, fname_bk0m
  real(dp) :: fac, Dp0, sigma, d1,d2,v1,v2, NN0
+ external calculate_derivatives
 !///////////////////////////
 !/     Read input-file     //
 !////////////////////////////
@@ -56,17 +52,18 @@ PROGRAM main
                        head_bkpm, head_bkmp, head_bkm0, head_bk0p, head_bk00, &
                        head_bk0m, rho_p, ggamma, lambda, mc0 , binFLAG, &
                        mcp, mcm, rhocp, rhocm, Ntot, np_fix_flag, nm_fix_flag, n0_fix_flag, &
-                       d0_crit, dp_crit, dm_crit, d_loss, NL, d_NL)
+                       d0_crit, dp_crit, dm_crit, d_loss, NL, d_NL, relerr, abserr, flag)
 
 !/////////////////////////////
 !/  Alocate Arrays to Ntot  //
 !/////////////////////////////
  allocate(Vij(Ntot,Ntot))
- allocate(fNk0(4,Ntot),fNkp(4,Ntot),fNkm(4,Ntot))
  allocate(Nkp(Ntot),Nk0(Ntot),Nkm(Ntot),v(Ntot),d(Ntot),bkp0(Ntot),bkpm(Ntot))
+ allocate(dNk0dt(Ntot),dNkpdt(Ntot),dNkmdt(Ntot))
  allocate(bk0p(Ntot),bk00(Ntot),bk0m(Ntot),bkmp(Ntot),bkm0(Ntot))
- allocate(Nk0_rk(Ntot),Nkp_rk(Ntot),Nkm_rk(Ntot),kL0(Ntot),kLp(Ntot),kLm(Ntot))
+ allocate(kL0(Ntot),kLp(Ntot),kLm(Ntot))
  allocate(Kklp0(Ntot,Ntot),Kklpm(Ntot,Ntot),Kkl00(Ntot,Ntot),Kkl0m(Ntot,Ntot),S(Ntot,Ntot))
+ allocate(y(3*Ntot+3),yp(3*Ntot+3))
 
 !/****************************************************************************\\
 !/****************************************************************************\\
@@ -172,11 +169,23 @@ PROGRAM main
 
 ! Clear arrays
  DO j = 1,Ntot
-    Nk0(j) = 0.0d0 
-    Nkp(j) = 0.0d0
-    Nkm(j) = 0.0d0
+    Nk0(j) = 1.0d10 
+    Nkp(j) = 1.0d10
+    Nkm(j) = 1.0d10
  ENDDO
 
+ DO i=1,Ntot
+    dNk0dt(i) = 0
+    dNkpdt(i) = 0
+    dNkmdt(i) = 0
+ ENDDO
+ dn0dt = 0
+ dnpdt = 0
+ dnmdt = 0
+ DO i=1,neqn
+    yp(i) = 0
+ ENDDO 
+ 
 !// Read datafile, continue from end of run and overwrite initial distributions set above if loadFLAG=1 
  if (loadFLAG == 1) call load_state(load_state_file, vmin, vmax, Nk0, Nkp, Nkm, n0, np, nm, Ntot)
 
@@ -240,83 +249,39 @@ PROGRAM main
  ENDDO
  write(*,*) "//********************* Diameter/Volume nodes ********************//"
  write(*,*) " "
+ 
+ neqn = 3*Ntot+3
+ DO i=1,Ntot
+    y(i)        = Nk0(i)
+    y(i+Ntot)   = Nkp(i)
+    y(i+2*Ntot) = Nkm(i)
+ ENDDO
+ y(3*Ntot+1) = n0
+ y(3*Ntot+2) = np
+ y(3*Ntot+3) = nm
 
  tt = t0 
  call print_snapshot( Nk0, Nkp, Nkm, n0, np, nm, tt, Ntot)
  DO WHILE (tt<te)
-    tt = tt + dt
-    DO i=1,Ntot !/ Set RK-N's to current value 
-       Nk0_rk(i) = Nk0(i)
-       Nkp_rk(i) = Nkp(i)
-       Nkm_rk(i) = Nkm(i)
-    ENDDO
-    np_rk = np
-    nm_rk = nm
-    n0_rk = n0
-    DO rk=1,4 !/ RungeKutta4-loop (RK) fNk0 etc are arrays of size (4,Ntot) containing RK-derivatives
-       DO i=1,Ntot       !/ Clear derivative functions from previous run
-          fNk0(rk,i)=0.0d0    !/ and set dummy variable N's to current state
-          fNkp(rk,i)=0.0d0
-          fNkm(rk,i)=0.0d0
-       ENDDO
-       fn0(rk) = 0.0d0
-       fnp(rk) = 0.0d0
-       fnm(rk) = 0.0d0
-       !/ Calculate desired derivatives
-       if (nuclFLAG==1)  call dNdt_nucl( fNk0(rk,:), fNkp(rk,:), fNkm(rk,:), fnm(rk), fnp(rk), &
-                                         Jn0_scaled, Jnp_scaled, Jnm_scaled, i_Jn0, i_Jnp, i_Jnm, &
-                                         Jnp, Jnm, Ntot)
-       if (coagFLAG==1)  call dNdt_coag( Nk0_rk, Nkp_rk, Nkm_rk, fNk0(rk,:), fNkp(rk,:), fNkm(rk,:), &
-                                         S, Vij, Kklp0, Kklpm, Kkl00, Kkl0m, Ntot)
-       if (condFLAG==1)  call dNdt_cond( Nk0_rk, Nkp_rk, Nkm_rk, fNk0(rk,:), fNkp(rk,:), fNkm(rk,:), &
-                                         v, v0, n0_rk, bk00, bk0p, bk0m, fn0(rk), Ntot)
-       if (ioncFLAG==1)  call dNdt_ionc( Nk0_rk, Nkp_rk, Nkm_rk, fNk0(rk,:), fNkp(rk,:), fNkm(rk,:), &
-                                         v, bkm0, bkp0, bkpm, bkmp, vcm, vcp, nm, np, Ntot)
-       if (charFLAG==1)  call dNdt_char( Nk0_rk, Nkp_rk, Nkm_rk, fNk0(rk,:), fNkp(rk,:), fNkm(rk,:), &
-                                         nm_rk, np_rk, fnm(rk), fnp(rk), bkm0, bkmp, bkp0, bkpm,  &
-                                         Ntot)
-       if (lossFLAG==1)  call dNdt_loss( Nk0_rk, Nkp_rk, Nkm_rk, fNk0(rk,:), fNkp(rk,:), fNkm(rk,:), &
-                                         n0_rk, nm_rk, np_rk, fn0(rk), fnp(rk), fnm(rk), d, d_np,    &
-                                         d_nm, d_n0, ggamma, lambda, d_loss, alpha,NL, bL0, bLp, bLm,& 
-                                         kL0, kLp, kLm, Ntot)
-       if (prodFLAG==1)  call dNdt_prod( fn0(rk), fnp(rk), fnm(rk), n0_rk, np_rk, nm_rk, P0, q, Ntot)
-      !/ Calculate aerosol concentrations N's at relevant RK-timestep, and load in to RK-concentrations
-       IF (rk < 4) THEN
-          DO i=1,Ntot
-             Nk0_rk(i) = Nk0(i) + (dt/rk_coef(rk)) * fNk0(rk,i)
-             Nkp_rk(i) = Nkp(i) + (dt/rk_coef(rk)) * fNkp(rk,i)
-             Nkm_rk(i) = Nkm(i) + (dt/rk_coef(rk)) * fNkm(rk,i)
-          ENDDO
-          !/ Either update or keep constant monomer and ion concentrations in RK depending on controlfile
-          IF (n0_fix_flag == 0) THEN
-             n0_rk = n0 + (dt/rk_coef(rk)) * fn0(rk)
-          END IF
-          IF (np_fix_flag == 0) THEN
-             np_rk  = np  + (dt/rk_coef(rk)) * fnp(rk)  
-          END IF 
-          IF (nm_fix_flag == 0) THEN
-             nm_rk  = nm  + (dt/rk_coef(rk)) * fnm(rk)
-          END IF
-       END IF
-    ENDDO
-    DO i=1,Ntot !/ Calculate final new aerosol concentrations	
-       Nk0(i) = Nk0(i) + dt * ( fNk0(1,i) + 2.0d0*fNk0(2,i) + 2.0d0*fNk0(3,i) + fNk0(4,i) ) / 6.0d0
-       Nkp(i) = Nkp(i) + dt * ( fNkp(1,i) + 2.0d0*fNkp(2,i) + 2.0d0*fNkp(3,i) + fNkp(4,i) ) / 6.0d0
-       Nkm(i) = Nkm(i) + dt * ( fNkm(1,i) + 2.0d0*fNkm(2,i) + 2.0d0*fNkm(3,i) + fNkm(4,i) ) / 6.0d0
-    ENDDO
-    !/ Either update or keep constan monomert and ion concentrations depending on controlfile
-    IF (n0_fix_flag == 0) THEN 
-       n0 = n0 + dt * ( fn0(1) + 2.0d0*fn0(2) + 2.0d0*fn0(3) + fn0(4))  / 6.0d0
+20  call r8_rkf45 ( calculate_derivatives, neqn, y, yp, tt, tt+ts, relerr, abserr, flag )
+    IF (flag == 3) THEN ! RELERROR ADJUSTED UP
+        flag = 2
+        GOTO 20
+    ELSE IF (flag == 4) THEN ! ALLOW FOR MORE INTEGRATION STEPS
+        GOTO 20
+    ELSE IF (flag == 7) THEN ! CONSIDER USING SINGLE STEP MODE (IGNORED BY RESETTING TO FLAG=2)
+        flag = 2
     END IF
-    IF (np_fix_flag == 0) THEN
-       np  = np +  dt * ( fnp(1)  + 2.0d0*fnp(2)  + 2.0d0*fnp(3)  + fnp(4) )  / 6.0d0
-    END IF
-    IF (nm_fix_flag == 0) THEN 
-       nm  = nm +  dt * ( fnm(1)  + 2.0d0*fnm(2)  + 2.0d0*fnm(3)  + fnm(4) )  / 6.0d0
-    END IF
- 
+    DO i=1,Ntot
+       Nk0(i) = y(i)
+       Nkp(i) = y(i+Ntot)
+       Nkm(i) = y(i+2*Ntot)
+    ENDDO
+    n0 = y(3*Ntot+1)
+    np = y(3*Ntot+2)
+    nm = y(3*Ntot+3)
 !/ PRINT SNAPSHOT
-   IF (mod(tt,ts) < dt) call print_snapshot( Nk0, Nkp, Nkm, n0, np, nm, tt, Ntot)
+   call print_snapshot( Nk0, Nkp, Nkm, n0, np, nm, tt, Ntot)
 
  ENDDO
 !//////////////////////////                                                                              //
@@ -327,9 +292,60 @@ PROGRAM main
 
 ! Deallocate arrays
  deallocate(Vij)
- deallocate(fNk0,fNkp,fNkm)
  deallocate(Nkp, Nk0, Nkm, v, d, bkp0, bkpm, bk0p, bk00, bk0m, bkmp, bkm0)
- deallocate(Nk0_rk, Nkp_rk, Nkm_rk, kL0,kLp,kLm)
+ deallocate(kL0,kLp,kLm)
  deallocate(S, Kklp0,  Kklpm, Kkl00, Kkl0m)
+ deallocate(y,yp)
 
 END
+
+
+!////////////////////////////////////
+!/ SUBROUTINE FOR TOTAL DERIVATIVE //
+!////////////////////////////////////
+
+SUBROUTINE calculate_derivatives(t,y,yp)
+   USE precision_type
+   USE dNdt_module
+   USE shared_data, ONLY: Ntot,charFLAG,coagFLAG,nuclFLAG,condFLAG,lossFLAG,loadFLAG,ioncFLAG,prodFLAG,&
+                          np_fix_flag, nm_fix_flag, n0_fix_flag 
+   integer :: i
+   real(dp) :: n0, np, nm, dn0dt, dnpdt, dnmdt, t
+   real(dp), dimension(Ntot) :: Nk0, Nkp, Nkm, dNk0dt, dNkpdt, dNkmdt
+   real(dp), dimension(3*Ntot+3) :: y, yp
+   DO i=1,Ntot
+      Nk0(i) = y(i)
+      Nkp(i) = y(i+Ntot)
+      Nkm(i) = y(i+2*Ntot)
+      dNk0dt(i) = 0
+      dNkpdt(i) = 0
+      dNkmdt(i) = 0
+   ENDDO
+   n0 = y(3*Ntot+1)
+   np = y(3*Ntot+2)
+   nm = y(3*Ntot+3)
+   dn0dt = 0
+   dnpdt = 0
+   dnmdt = 0
+   !/ Calculate desired derivatives
+   IF (nuclFLAG==1) call dNdt_nucl( dNk0dt, dNkpdt, dNkmdt, dnmdt, dnpdt)
+   IF (coagFLAG==1) call dNdt_coag( Nk0, Nkp, Nkm, dNk0dt, dNkpdt, dNkmdt)
+   IF (condFLAG==1) call dNdt_cond( Nk0, Nkp, Nkm, dNk0dt, dNkpdt, dNkmdt, n0, dn0dt)
+   IF (ioncFLAG==1) call dNdt_ionc( Nk0, Nkp, Nkm, dNk0dt, dNkpdt, dNkmdt, nm, np)
+   IF (charFLAG==1) call dNdt_char( Nk0, Nkp, Nkm, dNk0dt, dNkpdt, dNkmdt, nm, np, dnmdt, dnpdt)
+   IF (lossFLAG==1) call dNdt_loss( Nk0, Nkp, Nkm, dNk0dt, dNkpdt, dNkmdt, n0, nm, np, dn0dt, dnpdt, dnmdt)
+   IF (prodFLAG==1) call dNdt_prod( dn0dt, dnpdt, dnmdt)
+   !/ Fix monomers if fixflags are set
+   IF (n0_fix_flag == 1) dn0dt = 0
+   IF (np_fix_flag == 1) dnpdt = 0
+   IF (nm_fix_flag == 1) dnmdt = 0
+   DO i=1,Ntot
+      yp(i)        = dNk0dt(i)
+      yp(i+Ntot)   = dNkpdt(i)
+      yp(i+Ntot*2) = dNkmdt(i)
+   ENDDO
+   yp(3*Ntot+1) = dn0dt
+   yp(3*Ntot+2) = dnpdt
+   yp(3*Ntot+3) = dnmdt
+END SUBROUTINE calculate_derivatives
+
