@@ -13,7 +13,7 @@ loss_module                    1
 monomer_production_module      1
 
 ------------------- Continue from previous run -- -----------------
-load_file_flag                 1
+load_file_flag                 0
 filename_load                  output.dat
 NOTE: By setting this flag, the "Initial concentrations"
       parameters will be overwritten (except if "fix_initials" 
