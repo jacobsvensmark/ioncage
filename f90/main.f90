@@ -27,10 +27,10 @@ PROGRAM main
 !//////////////////////////
  integer :: i, j, neqn, flag
  integer :: head_Kklp0,head_Kklpm,head_Kkl00,head_Kkl0m, head_bkp0, head_bkpm 
- integer :: head_bkmp, head_bkm0, head_bk0p, head_bk00, head_bk0m, binFLAG
+ integer :: head_bkmp, head_bkm0, head_bk0p, head_bk00, head_bk0m, binFLAG, snapFLAG
  real(dp) :: d0_crit, dp_crit, dm_crit
  real(dp) :: v0_crit, vp_crit, vm_crit
- real(dp) :: vmin, vmax, n0, np, nm, dn0dt, dnpdt, dnmdt, tt
+ real(dp) :: vmin, vmax, n0, np, nm, dn0dt, dnpdt, dnmdt, tt, ts_old, t_snap
  real(dp) :: mcp, mcm, rhocp, rhocm, d_NL, abserr, relerr
  real(dp) :: n00, np0, nm0, t0, dt, ts, te, pi
  real(dp) :: dmin, dmax, Jn0, rho_p, mc0
@@ -52,7 +52,7 @@ PROGRAM main
                        head_bkpm, head_bkmp, head_bkm0, head_bk0p, head_bk00, &
                        head_bk0m, rho_p, ggamma, lambda, mc0 , binFLAG, &
                        mcp, mcm, rhocp, rhocm, Ntot, np_fix_flag, nm_fix_flag, n0_fix_flag, &
-                       d0_crit, dp_crit, dm_crit, d_loss, NL, d_NL, relerr, abserr, flag)
+                       d0_crit, dp_crit, dm_crit, d_loss, NL, d_NL, relerr, abserr, flag, t_snap)
 
 !/////////////////////////////
 !/  Alocate Arrays to Ntot  //
@@ -142,36 +142,36 @@ PROGRAM main
 
 ! Check if volume of ions or neutral monomer is larger than smallest bin spacing
 
- IF ((v(2) - v(1) < vcm) .OR. (v(2) - v(1) < vcp) .OR. (v(2) - v(1) < v0)) THEN
-    write(*,*) "*******************************************************************"
-    write(*,*) "   Error, smallest bin spacing has volume less than monomers,"
-    write(*,*) "   either ion volume or sulfuric acid. Change vmin, vmax or Ntot"
-    write(*,*) "   such that v(2)-v(1) is larger than monomer volumes."
-    write(*,*) "*******************************************************************"
-    GOTO 90
- END IF 
+!IF ((v(2) - v(1) < vcm) .OR. (v(2) - v(1) < vcp) .OR. (v(2) - v(1) < v0)) THEN
+!   write(*,*) "*******************************************************************"
+!   write(*,*) "   Error, smallest bin spacing has volume less than monomers,"
+!   write(*,*) "   either ion volume or sulfuric acid. Change vmin, vmax or Ntot"
+!   write(*,*) "   such that v(2)-v(1) is larger than monomer volumes."
+!   write(*,*) "*******************************************************************"
+!   GOTO 90
+!END IF 
 
- IF (ioncFLAG == 1) THEN
-    IF (charFLAG == 0) THEN
-        write(*,*) '***************************************'
-        write(*,*) ' WARNING: ioncFLAG = 1 requires that'
-        write(*,*) '          charFLAG = 1. Comment out '
-        write(*,*) '          this requirement in main.f90' 
-        write(*,*) '          to ignore.'
-        write(*,*) '***************************************'
-        GOTO 90
-    END IF
- END IF
+IF (ioncFLAG == 1) THEN
+   IF (charFLAG == 0) THEN
+       write(*,*) '***************************************'
+       write(*,*) ' WARNING: ioncFLAG = 1 requires that'
+       write(*,*) '          charFLAG = 1. Comment out '
+       write(*,*) '          this requirement in main.f90' 
+       write(*,*) '          to ignore.'
+       write(*,*) '***************************************'
+       GOTO 90
+   END IF
+END IF
 
 !/////////////////////////
 !/ Initial distribution // 
 !/////////////////////////
 
 ! Clear arrays
- DO j = 1,Ntot
-    Nk0(j) = 1.0d10 
-    Nkp(j) = 1.0d10
-    Nkm(j) = 1.0d10
+ DO i = 1,Ntot
+    Nk0(i) = 0
+    Nkp(i) = 0
+    Nkm(i) = 0
  ENDDO
 
  DO i=1,Ntot
@@ -182,6 +182,8 @@ PROGRAM main
  dn0dt = 0
  dnpdt = 0
  dnmdt = 0
+
+ neqn = 3*Ntot+3
  DO i=1,neqn
     yp(i) = 0
  ENDDO 
@@ -250,7 +252,6 @@ PROGRAM main
  write(*,*) "//********************* Diameter/Volume nodes ********************//"
  write(*,*) " "
  
- neqn = 3*Ntot+3
  DO i=1,Ntot
     y(i)        = Nk0(i)
     y(i+Ntot)   = Nkp(i)
@@ -261,28 +262,53 @@ PROGRAM main
  y(3*Ntot+3) = nm
 
  tt = t0 
+ ts_old = ts 
+ snapFLAG = 0
  call print_snapshot( Nk0, Nkp, Nkm, n0, np, nm, tt, Ntot)
  DO WHILE (tt<te)
-20  call r8_rkf45 ( calculate_derivatives, neqn, y, yp, tt, tt+ts, relerr, abserr, flag )
-    IF (flag == 3) THEN ! RELERROR ADJUSTED UP
+    call r8_rkf45 ( calculate_derivatives, neqn, y, yp, tt, tt+ts, relerr, abserr, flag )
+    IF (flag == 2) THEN ! Normal operation
+        GOTO 30
+    ELSE IF (flag == 3) THEN ! RELERROR ADJUSTED UP
         flag = 2
-        GOTO 20
     ELSE IF (flag == 4) THEN ! ALLOW FOR MORE INTEGRATION STEPS
-        GOTO 20
-    ELSE IF (flag == 7) THEN ! CONSIDER USING SINGLE STEP MODE (IGNORED BY RESETTING TO FLAG=2)
-        flag = 2
+        GOTO 30
+    ELSE IF (flag == 5) THEN ! SOLUTION VANISHED
+        write(*,*) "rk45 flag=5: Solution vanished, making error check impossible. Consider single step mode." 
+        GOTO 90
+    ELSE IF (flag == 6) THEN
+        write(*,*) "rk45 flag=6: Integration was not completed because the requested accuracy could not be achieved"
+        GOTO 90
+    ELSE IF (flag == 7) THEN
+        flag = 2 ! Replace "flag = 2" with "GOTO 90" to not insist on not using single step mode.
+    ELSE IF (flag == 8) THEN
+        write(*,*) "rk45 flag=8: Invalid input."
+        GOTO 90
     END IF
-    DO i=1,Ntot
-       Nk0(i) = y(i)
-       Nkp(i) = y(i+Ntot)
-       Nkm(i) = y(i+2*Ntot)
-    ENDDO
-    n0 = y(3*Ntot+1)
-    np = y(3*Ntot+2)
-    nm = y(3*Ntot+3)
-!/ PRINT SNAPSHOT
-   call print_snapshot( Nk0, Nkp, Nkm, n0, np, nm, tt, Ntot)
 
+    ! Check if snapshot is expected from next rk45 call, and adjust step length accordingly
+30  IF (mod(tt+ts,t_snap) < ts) THEN
+        IF (snapFLAG == 0) THEN
+            ts_old = ts
+            snapFLAG = 1 ! snapFLAG = 1: Snapshot expected after next rkf45 call
+        ELSE 
+            snapFLAG = 2 ! snapFLAG = 2; Snapshot expected, but ts_old is not updated
+        END IF
+        ts = t_snap - mod(tt,t_snap)
+    ELSE IF (snapFLAG > 0) THEN !/  PRINT SNAPSHOT
+        DO i=1,Ntot
+           Nk0(i) = y(i)
+           Nkp(i) = y(i+Ntot)
+           Nkm(i) = y(i+2*Ntot)
+        ENDDO
+        n0 = y(3*Ntot+1)
+        np = y(3*Ntot+2)
+        nm = y(3*Ntot+3)
+        call print_snapshot( Nk0, Nkp, Nkm, n0, np, nm, tt, Ntot)
+        snapFLAG = 0
+        ts = ts_old
+    END IF
+    
  ENDDO
 !//////////////////////////                                                                              //
 !/ TIME INTEGRATION LOOP //                              END                                             //
@@ -309,6 +335,9 @@ SUBROUTINE calculate_derivatives(t,y,yp)
    USE dNdt_module
    USE shared_data, ONLY: Ntot,charFLAG,coagFLAG,nuclFLAG,condFLAG,lossFLAG,loadFLAG,ioncFLAG,prodFLAG,&
                           np_fix_flag, nm_fix_flag, n0_fix_flag 
+
+   IMPLICIT NONE
+
    integer :: i
    real(dp) :: n0, np, nm, dn0dt, dnpdt, dnmdt, t
    real(dp), dimension(Ntot) :: Nk0, Nkp, Nkm, dNk0dt, dNkpdt, dNkmdt
@@ -348,4 +377,3 @@ SUBROUTINE calculate_derivatives(t,y,yp)
    yp(3*Ntot+2) = dnpdt
    yp(3*Ntot+3) = dnmdt
 END SUBROUTINE calculate_derivatives
-

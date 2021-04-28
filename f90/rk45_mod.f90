@@ -373,7 +373,7 @@ subroutine r8_rkf45 ( f, neqn, y, yp, t, tout, relerr, abserr, flag )
   real ( dp ), save :: relerr_save = -1.0D+00
   real ( dp ), parameter :: remin = 1.0E-12
   real ( dp ) s
-  real ( dp ) scale
+  real ( dp ) sscale
   real ( dp ) t
   real ( dp ) tol
   real ( dp ) toln
@@ -613,8 +613,8 @@ subroutine r8_rkf45 ( f, neqn, y, yp, t, tout, relerr, abserr, flag )
 !  To avoid premature underflow in the error tolerance function,
 !  scale the error tolerances.
 !
-  scale = 2.0D+00 / relerr
-  ae = scale * abserr
+  sscale = 2.0D+00 / relerr
+  ae = sscale * abserr
 !
 !  Step by step integration.
 !
@@ -717,7 +717,7 @@ subroutine r8_rkf45 ( f, neqn, y, yp, t, tout, relerr, abserr, flag )
 
       end do
 
-      esttol = abs ( h ) * eeoet * scale / 752400.0D+00
+      esttol = abs ( h ) * eeoet * sscale / 752400.0D+00
 
       if ( esttol <= 1.0D+00 ) then
         exit

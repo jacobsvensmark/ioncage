@@ -304,7 +304,7 @@ MODULE io_ioncage_module
                              head_bkp0, head_bkpm, head_bkmp, head_bkm0, head_bk0p, &
                              head_bk00, head_bk0m, rho_p, ggamma, lambda, mc0, &
                              binFLAG, mcp, mcm, rhocp, rhocm, Ntot, np_fix_flag, nm_fix_flag, &
-                             n0_fix_flag,d0_crit,dp_crit,dn_crit, d_loss, NL, d_NL,relerr,abserr,flag)
+                             n0_fix_flag,d0_crit,dp_crit,dn_crit, d_loss, NL, d_NL,relerr,abserr,flag,t_snap)
  ! Reads parameters set in controlfile
  
    USE precision_type
@@ -322,7 +322,7 @@ MODULE io_ioncage_module
    integer :: head_Kklp0, head_Kklpm, head_Kkl00, head_Kkl0m, head_bkp0, binFLAG, ioncFLAG, prodFLAG,flag
    integer :: head_bkpm, head_bkmp, head_bkm0, head_bk0p, head_bk00, head_bk0m
    real(dp) :: T, P0, Jn0, Jnp, Jnm, q, alpha, n00, np0, nm0, t0, dt, ts, te, mcm, mcp, rhocp, rhocm, d_loss
-   real(dp) :: dmin, dmax, rho_p, ggamma, lambda, mc0, d0_crit, dp_crit, dn_crit, NL, d_NL, relerr,abserr
+   real(dp) :: dmin, dmax, rho_p, ggamma, lambda, mc0, d0_crit, dp_crit, dn_crit, NL, d_NL, relerr,abserr, t_snap
  
    character(LEN=300) :: input_file, load_state_file,fname_Kklp0, fname_Kklpm, fname_Kkl00, fname_Kkl0m, fname_bkp0
    character(LEN=300) :: fname_bkpm, fname_bkmp, fname_bkm0, fname_bk0p, fname_bk00, fname_bk0m
@@ -403,9 +403,11 @@ MODULE io_ioncage_module
             read(buffer, *, iostat=ios) t0
          case ('end_time')
             read(buffer, *, iostat=ios) te
-         case ('time_step_length')
-            read(buffer, *, iostat=ios) dt
+!        case ('time_step_length')
+!           read(buffer, *, iostat=ios) dt
          case ('make_snapshot_every')
+            read(buffer, *, iostat=ios) t_snap
+         case ('integrator_step_length')
             read(buffer, *, iostat=ios) ts
          case ('minimum_aerosol_diameter')
             read(buffer, *, iostat=ios) dmin
@@ -649,14 +651,13 @@ MODULE io_ioncage_module
   lunit = 39
  !/ Read final snapshot into arrays
   OPEN(lunit, file = filename)
-     Nsnaps = (number_of_lines-(88+Ntot+2))/(Ntot+12)
-     DO i=1, 92+(2+Ntot)+(Nsnaps-1)*(Ntot+12)
+     Nsnaps = (number_of_lines-(89+Ntot+2))/(Ntot+12)
+     DO i=1, 93+(2+Ntot)+(Nsnaps-1)*(Ntot+12)
         read(lunit,"(A)") buffer !// Skip to final snapshot
      ENDDO
      DO i=1,7
         read(lunit,"(A)") buffer !// Skip header of final snapshot
      ENDDO
-     write(*,*) buffer
      read(lunit,*) n0            !// Read n0
      read(lunit,"(A)") buffer    !// Skip line
      read(lunit,"(A)") buffer    !// Skip line
