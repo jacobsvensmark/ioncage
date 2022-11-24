@@ -579,7 +579,7 @@ MODULE io_ioncage_module
     write(*,*) "--------------------------------------------" 
     write(*,*) " "
     write(*,*) "Time [s]" 
-    write(*,"(F11.2)") t 
+    write(*,"(F22.9)") t 
     write(*,*) " " 
     write(*,*) "n0" 
     write(*,"(ES16.6)") n0 

@@ -30,7 +30,7 @@ PROGRAM main
  integer :: head_bkmp, head_bkm0, head_bk0p, head_bk00, head_bk0m, binFLAG, snapFLAG
  real(dp) :: d0_crit, dp_crit, dm_crit
  real(dp) :: v0_crit, vp_crit, vm_crit
- real(dp) :: vmin, vmax, n0, np, nm, dn0dt, dnpdt, dnmdt, tt, ts_old, t_snap
+ real(dp) :: vmin, vmax, n0, np, nm, dn0dt, dnpdt, dnmdt, tt, ts_orig, t_snap
  real(dp) :: mcp, mcm, rhocp, rhocm, d_NL, abserr, relerr
  real(dp) :: n00, np0, nm0, t0, dt, ts, te, pi
  real(dp) :: dmin, dmax, Jn0, rho_p, mc0
@@ -163,6 +163,16 @@ IF (ioncFLAG == 1) THEN
    END IF
 END IF
 
+! Check that step length is shorter than snapshot length
+IF (t_snap < ts) THEN
+   write(*,*) '***************************************'
+   write(*,*) ' ERROR: make_snapshot_every parameter'
+   write(*,*) '        in controlfile must be larger'
+   write(*,*) '        integrator_step_length.'
+   write(*,*) '***************************************'
+   GOTO 90
+END IF
+
 !/////////////////////////
 !/ Initial distribution // 
 !/////////////////////////
@@ -262,17 +272,22 @@ END IF
  y(3*Ntot+3) = nm
 
  tt = t0 
- ts_old = ts 
+ ts_orig = ts 
  snapFLAG = 0
  call print_snapshot( Nk0, Nkp, Nkm, n0, np, nm, tt, Ntot)
  DO WHILE (tt<te)
-    call r8_rkf45 ( calculate_derivatives, neqn, y, yp, tt, tt+ts, relerr, abserr, flag )
+20  call r8_rkf45 ( calculate_derivatives, neqn, y, yp, tt, tt+ts, relerr, abserr, flag )
     IF (flag == 2) THEN ! Normal operation
         GOTO 30
     ELSE IF (flag == 3) THEN ! RELERROR ADJUSTED UP
-        flag = 2
+        write(*,*) "Relative error increased by rk45 (flag=3)."
+        write(*,*) "Change GOTO statement in main.f90 to accept this and integration, or raise relative error in controlfile."
+        GOTO 90
+        !Comment out the above 3 lines, and uncomment the below to accept relative error increases
+        !flag = 2
+        !GOTO 20
     ELSE IF (flag == 4) THEN ! ALLOW FOR MORE INTEGRATION STEPS
-        GOTO 30
+        GOTO 20
     ELSE IF (flag == 5) THEN ! SOLUTION VANISHED
         write(*,*) "rk45 flag=5: Solution vanished, making error check impossible. Consider single step mode." 
         GOTO 90
@@ -287,15 +302,7 @@ END IF
     END IF
 
     ! Check if snapshot is expected from next rk45 call, and adjust step length accordingly
-30  IF (mod(tt+ts,t_snap) < ts) THEN
-        IF (snapFLAG == 0) THEN
-            ts_old = ts
-            snapFLAG = 1 ! snapFLAG = 1: Snapshot expected after next rkf45 call
-        ELSE 
-            snapFLAG = 2 ! snapFLAG = 2; Snapshot expected, but ts_old is not updated
-        END IF
-        ts = t_snap - mod(tt,t_snap)
-    ELSE IF (snapFLAG > 0) THEN !/  PRINT SNAPSHOT
+30  IF (snapFLAG == 1) THEN !/  PRINT SNAPSHOT
         DO i=1,Ntot
            Nk0(i) = y(i)
            Nkp(i) = y(i+Ntot)
@@ -306,9 +313,11 @@ END IF
         nm = y(3*Ntot+3)
         call print_snapshot( Nk0, Nkp, Nkm, n0, np, nm, tt, Ntot)
         snapFLAG = 0
-        ts = ts_old
+        ts = ts_orig
+    ELSE IF (dmod(tt,t_snap)+ts >= t_snap) THEN
+        snapFLAG = 1 ! snapFLAG = 1: Snapshot expected after next rkf45 call
+        ts = t_snap - dmod(tt,t_snap)
     END IF
-    
  ENDDO
 !//////////////////////////                                                                              //
 !/ TIME INTEGRATION LOOP //                              END                                             //
