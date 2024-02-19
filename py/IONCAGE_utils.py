@@ -104,15 +104,15 @@ def read_ioncage_output(filename,**kwargs):
             elif (i == snapshot_lines[t_cnt]+9): # Read charged monomers
                 n[t_cnt,1],n[t_cnt,2] = line.rstrip().split()[:2] 
             elif (i == snapshot_lines[t_cnt]+6): # Read neutral monomers
-                n[t_cnt] = np.float(line)
+                n[t_cnt] = float(line)
             elif (i == snapshot_lines[t_cnt]+3): # Read time value 
                 if time_hack==True:
                     if t_cnt < 2:
-                        t[t_cnt] = np.float(line)
+                        t[t_cnt] = float(line)
                     else:
                         t[t_cnt] = t[t_cnt-1]+t[1]
                 else:
-                    t[t_cnt] = np.float(line)
+                    t[t_cnt] = float(line)
             elif (i >= d_line+2) and (i<d_line+2+ntot): # Read diameter and volume arrays
                 d[i-(d_line+2)],v[i-(d_line+2)] = line.rstrip().split()[:2]
             elif (d_cnt==ntot) and (t_cnt<=n_snapshots): # Advance snapshot counter and reset d counter

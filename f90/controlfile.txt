@@ -4,7 +4,7 @@
 --------------- Total number of particle nodes ---------------- 
 ntot                           100
 ----------------- Mechanisms to be included --------------------
-charge_module                  0
+charge_module                  1
 coagulation_module             1
 nucleation_module              1
 condensation_module            1
@@ -46,7 +46,7 @@ fix_initials                   1,1,1           (0 or 1 - fixes [np, nm, nsa] to 
 
 -------------------- Time Related Parameters ---------------------
 start_time                     0.              [ s ]
-end_time                       68000000.       [ s ]
+end_time                       68000.          [ s ]
 make_snapshot_every            100.            [ s ]
 
 -------------------- Size Related Parameters ---------------------
