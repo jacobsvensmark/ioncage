@@ -76,15 +76,19 @@ the compiled executable file produced by the `Makefile`. The
     acid are not overwritten. Also the initial values may be kept
     constant by setting the `fixinitials=1`.
 
--   The **Time related parameters** control start time (usually 0),
-    `End time` i.e. length of run, step length $\Delta t$ for the
-    integration and the time between each snapshot printed to the output
-    file.
+-   The **Time related parameters** control `start_time` (usually 0),
+    `end_time` i.e. duration of the run, and `make_snapshot_every` -
+    the parameter controlling the time between each snapshot written
+    to the output.
 
 -   The **Size related parameters** paragraph contains parameters
     controlling the size range of the nodes in the simulation, as well
     as critical diameters for neutral and charged nucleated aerosols.
 
+-   **Integration (rk45) parameters** has `flag` which normally should be
+    `integrator_step_length` in seconds, and parameters controlling the
+    tolerated error for the integration.
+    
 -   Finally, the **Interaction Coefficients** paragraph contains a list
     of paths to datafiles with interaction coefficients that are loaded
     for each type of interaction used in the GDE. (See subroutines
