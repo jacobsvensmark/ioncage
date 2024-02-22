@@ -8,7 +8,7 @@ and outputs snapshots with specified time intervals. If you use this
 code, please cite [Svensmark et al. 
 (2020)](https://doi.org/10.1029/2020EA001142). 
 
-//Jacob Svensmark
+//Jacob Svensmark, 2024
 
 ## Installing, compiling and running the model
 
