@@ -6,7 +6,9 @@ aerosol distribution through time while taking charge into account. The
 model takes its initial and environmental conditions from an input-file,
 and outputs snapshots with specified time intervals. If you use this
 code, please cite [Svensmark et al. 
-(2020)](https://doi.org/10.1029/2020EA001142). //Jacob Svensmark
+(2020)](https://doi.org/10.1029/2020EA001142). 
+
+//Jacob Svensmark
 
 ## Installing, compiling and running the model
 
